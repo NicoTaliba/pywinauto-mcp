@@ -1,0 +1,22 @@
+# PyWinAuto MCP - 开发依赖
+# 包含运行时依赖 + 开发/测试工具
+
+-r requirements.txt
+
+# 测试
+pytest>=7.0.0
+pytest-cov>=4.0.0
+
+# 代码质量
+flake8>=6.0.0
+black>=23.0.0
+isort>=5.12.0
+mypy>=1.0.0
+
+# 文档
+mkdocs>=1.5.0
+mkdocs-material>=9.0.0
+
+# 打包
+build>=1.0.0
+twine>=4.0.0

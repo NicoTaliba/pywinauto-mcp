@@ -1,0 +1,9 @@
+# PyWinAuto MCP - 运行时依赖
+# Python >= 3.10, Windows >= 10
+
+pywinauto>=0.6.8
+fastmcp>=4.0.0
+pywin32>=306
+comtypes>=1.2.0
+pydantic>=2.0.0
+six>=1.16.0
