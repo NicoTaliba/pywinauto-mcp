@@ -185,7 +185,10 @@ def _validate_timeout(timeout: Optional[float]) -> Optional[float]:
 
 def _validate_workflow_id(wf_id: str) -> str:
     if not re.match(r"^WF\d{3}$", wf_id):
-        raise ValueError(f"Invalid workflow ID '{wf_id}'. Expected format: WF001-WF100")
+        raise ValueError(f"Invalid workflow ID '{wf_id}'. Expected format: WF001-WF105")
+    num = int(wf_id[2:])
+    if num < 1 or num > 105:
+        raise ValueError(f"Invalid workflow ID '{wf_id}'. Expected range: WF001-WF105")
     return wf_id
 
 
@@ -1510,6 +1513,485 @@ def sysinfo_python_bitness() -> dict[str, Any]:
 
 
 # ===========================================================================
+# 8b. SYSTEM OPERATIONS (Download / Install / Uninstall / Process)
+# ===========================================================================
+
+def system_download_file(url: str, save_path: str, timeout: float = 120.0) -> dict[str, Any]:
+    """Download a file from URL to local path.
+
+    Args:
+        url: Source URL to download from
+        save_path: Local file path to save
+        timeout: Download timeout in seconds
+
+    Returns:
+        Dict with status, saved_path, file_size, and download_time
+    """
+    import urllib.request
+    import os
+    import time
+
+    _validate_nonempty(url, "url")
+    _validate_nonempty(save_path, "save_path")
+    _validate_positive(timeout, "timeout")
+
+    start_time = time.time()
+    try:
+        # Ensure directory exists
+        save_dir = os.path.dirname(save_path)
+        if save_dir and not os.path.exists(save_dir):
+            os.makedirs(save_dir, exist_ok=True)
+
+        # Download with progress
+        request = urllib.request.Request(url, headers={"User-Agent": "pywinauto-mcp/3.0"})
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            total_size = int(response.headers.get("Content-Length", 0))
+            downloaded = 0
+            with open(save_path, "wb") as f:
+                while True:
+                    chunk = response.read(8192)
+                    if not chunk:
+                        break
+                    f.write(chunk)
+                    downloaded += len(chunk)
+
+        elapsed = round(time.time() - start_time, 2)
+        file_size = os.path.getsize(save_path)
+
+        return {
+            "status": "success",
+            "saved_path": os.path.abspath(save_path),
+            "file_size": file_size,
+            "file_size_mb": round(file_size / 1024 / 1024, 2),
+            "download_time": elapsed,
+            "speed_kbps": round(file_size / 1024 / max(elapsed, 0.01), 1),
+        }
+    except Exception as e:
+        return {"status": "error", "error": str(e), "error_type": type(e).__name__}
+
+
+def system_run_command(command: str, timeout: float = 300.0,
+                       capture_output: bool = True, work_dir: str = None) -> dict[str, Any]:
+    """Run a system command and return output.
+
+    Args:
+        command: Command to execute
+        timeout: Timeout in seconds
+        capture_output: Whether to capture stdout/stderr
+        work_dir: Working directory (None = current)
+
+    Returns:
+        Dict with return_code, stdout, stderr, and elapsed_time
+    """
+    import subprocess
+    import time
+
+    _validate_nonempty(command, "command")
+    _validate_positive(timeout, "timeout")
+
+    start_time = time.time()
+    try:
+        kwargs = {
+            "shell": True,
+            "timeout": timeout,
+            "cwd": work_dir,
+        }
+        if capture_output:
+            kwargs["stdout"] = subprocess.PIPE
+            kwargs["stderr"] = subprocess.PIPE
+            kwargs["text"] = True
+            kwargs["encoding"] = "utf-8"
+            kwargs["errors"] = "replace"
+
+        result = subprocess.run(command, **kwargs)
+        elapsed = round(time.time() - start_time, 2)
+
+        return {
+            "status": "success" if result.returncode == 0 else "error",
+            "return_code": result.returncode,
+            "stdout": result.stdout if capture_output else None,
+            "stderr": result.stderr if capture_output else None,
+            "elapsed_time": elapsed,
+            "timed_out": False,
+        }
+    except subprocess.TimeoutExpired as e:
+        return {
+            "status": "error",
+            "error": f"Command timed out after {timeout}s",
+            "error_type": "TimeoutExpired",
+            "return_code": -1,
+            "stdout": e.stdout if capture_output else None,
+            "stderr": e.stderr if capture_output else None,
+            "timed_out": True,
+        }
+    except Exception as e:
+        return {"status": "error", "error": str(e), "error_type": type(e).__name__}
+
+
+def system_process_running(process_name: str) -> dict[str, Any]:
+    """Check if a process is running by name.
+
+    Args:
+        process_name: Process name (e.g. 'notepad.exe', 'chrome')
+
+    Returns:
+        Dict with running status, process count, and list of PIDs
+    """
+    import subprocess
+
+    _validate_nonempty(process_name, "process_name")
+
+    try:
+        # Use tasklist to find processes
+        result = subprocess.run(
+            f'tasklist /FI "IMAGENAME eq {process_name}" /FO CSV /NH',
+            shell=True, capture_output=True, text=True, encoding="gbk", errors="replace"
+        )
+
+        pids = []
+        if result.returncode == 0 and result.stdout:
+            for line in result.stdout.strip().split("\n"):
+                if line and '"' in line:
+                    parts = line.split('","')
+                    if len(parts) >= 2:
+                        try:
+                            pid = int(parts[1].strip('"'))
+                            pids.append(pid)
+                        except (ValueError, IndexError):
+                            pass
+
+        return {
+            "status": "success",
+            "running": len(pids) > 0,
+            "process_count": len(pids),
+            "pids": pids,
+            "process_name": process_name,
+        }
+    except Exception as e:
+        return {"status": "error", "error": str(e), "error_type": type(e).__name__}
+
+
+def system_file_exists(path: str) -> dict[str, Any]:
+    """Check if a file or directory exists.
+
+    Args:
+        path: File or directory path
+
+    Returns:
+        Dict with exists status and file info
+    """
+    import os
+
+    _validate_nonempty(path, "path")
+
+    try:
+        exists = os.path.exists(path)
+        info = {"exists": exists, "path": os.path.abspath(path)}
+        if exists:
+            stat = os.stat(path)
+            info["is_file"] = os.path.isfile(path)
+            info["is_dir"] = os.path.isdir(path)
+            info["size"] = stat.st_size
+            info["size_mb"] = round(stat.st_size / 1024 / 1024, 2)
+            info["modified"] = stat.st_mtime
+        return {"status": "success", **info}
+    except Exception as e:
+        return {"status": "error", "error": str(e), "error_type": type(e).__name__}
+
+
+def system_get_installed_software() -> dict[str, Any]:
+    """Get list of installed software from Windows registry.
+
+    Returns:
+        Dict with count and list of installed software (name, version, publisher, install_location)
+    """
+    import winreg
+
+    try:
+        software_list = []
+        registry_paths = [
+            (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
+            (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"),
+            (winreg.HKEY_CURRENT_USER, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
+        ]
+
+        for hive, path in registry_paths:
+            try:
+                with winreg.OpenKey(hive, path) as key:
+                    i = 0
+                    while True:
+                        try:
+                            subkey_name = winreg.EnumKey(key, i)
+                            i += 1
+                            try:
+                                with winreg.OpenKey(key, subkey_name) as subkey:
+                                    name = ""
+                                    version = ""
+                                    publisher = ""
+                                    install_location = ""
+                                    uninstall_string = ""
+                                    try:
+                                        j = 0
+                                        while True:
+                                            try:
+                                                val_name, val_data, _ = winreg.EnumValue(subkey, j)
+                                                j += 1
+                                                if val_name == "DisplayName":
+                                                    name = str(val_data)
+                                                elif val_name == "DisplayVersion":
+                                                    version = str(val_data)
+                                                elif val_name == "Publisher":
+                                                    publisher = str(val_data)
+                                                elif val_name == "InstallLocation":
+                                                    install_location = str(val_data)
+                                                elif val_name == "UninstallString":
+                                                    uninstall_string = str(val_data)
+                                            except OSError:
+                                                break
+                                    except Exception:
+                                        pass
+
+                                    if name:  # Only add entries with a display name
+                                        software_list.append({
+                                            "name": name,
+                                            "version": version,
+                                            "publisher": publisher,
+                                            "install_location": install_location,
+                                            "uninstall_string": uninstall_string,
+                                        })
+                            except OSError:
+                                pass
+                        except OSError:
+                            break
+            except OSError:
+                pass
+
+        # Deduplicate by name
+        seen = set()
+        unique_software = []
+        for s in software_list:
+            if s["name"] not in seen:
+                seen.add(s["name"])
+                unique_software.append(s)
+
+        unique_software.sort(key=lambda x: x["name"].lower())
+
+        return {
+            "status": "success",
+            "count": len(unique_software),
+            "software": unique_software,
+        }
+    except Exception as e:
+        return {"status": "error", "error": str(e), "error_type": type(e).__name__}
+
+
+def system_find_software(name_pattern: str) -> dict[str, Any]:
+    """Find installed software by name pattern (case-insensitive substring match).
+
+    Args:
+        name_pattern: Software name pattern to search for
+
+    Returns:
+        Dict with matches count and list of matching software
+    """
+    _validate_nonempty(name_pattern, "name_pattern")
+
+    result = system_get_installed_software()
+    if result["status"] != "success":
+        return result
+
+    pattern_lower = name_pattern.lower()
+    matches = [s for s in result["software"] if pattern_lower in s["name"].lower()]
+
+    return {
+        "status": "success",
+        "found": len(matches) > 0,
+        "match_count": len(matches),
+        "matches": matches,
+    }
+
+
+def system_uninstall_software(display_name: str, silent: bool = True,
+                               timeout: float = 300.0) -> dict[str, Any]:
+    """Uninstall installed software by display name.
+
+    Args:
+        display_name: Exact display name of the software to uninstall
+        silent: Whether to attempt silent uninstall (uses /S or /silent flags)
+        timeout: Timeout in seconds
+
+    Returns:
+        Dict with uninstall status and command output
+    """
+    _validate_nonempty(display_name, "display_name")
+
+    # Find the software
+    result = system_get_installed_software()
+    if result["status"] != "success":
+        return result
+
+    software = next((s for s in result["software"] if s["name"].lower() == display_name.lower()), None)
+    if not software:
+        # Try partial match
+        matches = [s for s in result["software"] if display_name.lower() in s["name"].lower()]
+        if len(matches) == 1:
+            software = matches[0]
+        elif len(matches) > 1:
+            return {
+                "status": "error",
+                "error": f"Multiple matches found for '{display_name}'. Please specify exact name.",
+                "matches": [m["name"] for m in matches[:10]],
+            }
+        else:
+            return {"status": "error", "error": f"Software '{display_name}' not found in installed software list."}
+
+    uninstall_string = software.get("uninstall_string", "")
+    if not uninstall_string:
+        return {
+            "status": "error",
+            "error": f"No uninstall string found for '{display_name}'.",
+            "software": software,
+        }
+
+    # Build uninstall command
+    command = uninstall_string
+    if silent:
+        # Try common silent flags
+        if "msiexec" in uninstall_string.lower() or uninstall_string.startswith("MsiExec"):
+            if "/x" not in uninstall_string and "/X" not in uninstall_string:
+                command = f"{uninstall_string} /quiet /norestart"
+            else:
+                command = f"{uninstall_string} /quiet /norestart"
+        else:
+            # Try common silent flags for EXE installers
+            if "/S" not in uninstall_string and "/silent" not in uninstall_string.lower():
+                command = f'"{uninstall_string}" /S'
+
+    # Run uninstall
+    result = system_run_command(command, timeout=timeout, capture_output=True)
+
+    return {
+        "status": result["status"],
+        "software_name": software["name"],
+        "software_version": software.get("version", ""),
+        "uninstall_command": command,
+        "return_code": result.get("return_code"),
+        "stdout": result.get("stdout"),
+        "stderr": result.get("stderr"),
+        "note": "You may need to manually confirm uninstall dialog if silent flag is not supported.",
+    }
+
+
+def system_install_package(installer_path: str, args: str = "",
+                           timeout: float = 600.0, silent: bool = True) -> dict[str, Any]:
+    """Install a software package from local installer file.
+
+    Args:
+        installer_path: Path to installer file (.exe, .msi)
+        args: Additional arguments for installer
+        timeout: Timeout in seconds
+        silent: Whether to attempt silent install
+
+    Returns:
+        Dict with install status and command output
+    """
+    import os
+
+    _validate_nonempty(installer_path, "installer_path")
+
+    # Check file exists
+    if not os.path.exists(installer_path):
+        return {"status": "error", "error": f"Installer file not found: {installer_path}"}
+
+    ext = os.path.splitext(installer_path)[1].lower()
+
+    # Build install command
+    if ext == ".msi":
+        command = f'msiexec /i "{installer_path}"'
+        if silent:
+            command += " /quiet /norestart"
+        if args:
+            command += f" {args}"
+    else:
+        # Assume EXE installer
+        command = f'"{installer_path}"'
+        if silent:
+            if "/S" not in args and "/silent" not in args.lower():
+                command += " /S"
+        if args:
+            command += f" {args}"
+
+    # Run installer
+    result = system_run_command(command, timeout=timeout, capture_output=True)
+
+    return {
+        "status": result["status"],
+        "installer_path": os.path.abspath(installer_path),
+        "installer_type": ext,
+        "install_command": command,
+        "return_code": result.get("return_code"),
+        "stdout": result.get("stdout"),
+        "stderr": result.get("stderr"),
+        "note": "If silent install is not supported, installer dialog may appear. Please complete manually.",
+    }
+
+
+def system_download_and_install(url: str, save_path: str = None,
+                                  install_args: str = "", timeout: float = 600.0,
+                                  silent: bool = True) -> dict[str, Any]:
+    """Download installer from URL and install it.
+
+    Args:
+        url: URL to download installer from
+        save_path: Local path to save installer (None = temp directory)
+        install_args: Additional arguments for installer
+        timeout: Total timeout in seconds
+        silent: Whether to attempt silent install
+
+    Returns:
+        Dict with download and install status
+    """
+    import os
+    import tempfile
+
+    _validate_nonempty(url, "url")
+
+    # Determine save path
+    if not save_path:
+        filename = url.split("/")[-1].split("?")[0]
+        if not filename:
+            filename = "installer.exe"
+        save_path = os.path.join(tempfile.gettempdir(), filename)
+
+    # Step 1: Download
+    print(f"Downloading {url} to {save_path}...")
+    download_result = system_download_file(url, save_path, timeout=min(timeout, 300))
+    if download_result["status"] != "success":
+        return {
+            "status": "error",
+            "stage": "download",
+            "error": download_result.get("error", "Download failed"),
+            "download_result": download_result,
+        }
+
+    # Step 2: Install
+    print(f"Installing {save_path}...")
+    install_result = system_install_package(
+        save_path, args=install_args, timeout=timeout, silent=silent
+    )
+
+    return {
+        "status": install_result["status"],
+        "download": {
+            "saved_path": download_result["saved_path"],
+            "file_size": download_result["file_size"],
+            "download_time": download_result["download_time"],
+        },
+        "install": install_result,
+    }
+
+
+# ===========================================================================
 # 9. FIND WINDOWS / ELEMENTS
 # ===========================================================================
 
@@ -2552,6 +3034,17 @@ ALL_FUNCTIONS["snapshot_ui_state"] = snapshot_ui_state
 ALL_FUNCTIONS["cleanup_stale_sessions"] = cleanup_stale_sessions
 ALL_FUNCTIONS["classify_error"] = classify_error
 
+# System operations (download / install / uninstall / process)
+ALL_FUNCTIONS["system_download_file"] = system_download_file
+ALL_FUNCTIONS["system_run_command"] = system_run_command
+ALL_FUNCTIONS["system_process_running"] = system_process_running
+ALL_FUNCTIONS["system_file_exists"] = system_file_exists
+ALL_FUNCTIONS["system_get_installed_software"] = system_get_installed_software
+ALL_FUNCTIONS["system_find_software"] = system_find_software
+ALL_FUNCTIONS["system_uninstall_software"] = system_uninstall_software
+ALL_FUNCTIONS["system_install_package"] = system_install_package
+ALL_FUNCTIONS["system_download_and_install"] = system_download_and_install
+
 
 # ===========================================================================
 # WORKFLOW ENGINE — 100 条桌面 GUI 常用工作流
@@ -3224,6 +3717,11 @@ _guide_workflows = [
     ("WF098", "对话框意外弹出处理", "在执行主操作时，监控并自动处理意外弹出的对话框。", "错误恢复与重试"),
     ("WF099", "超时回退策略", "尝试主要操作方法，如果超时则回退到备选方法。", "错误恢复与重试"),
     ("WF100", "完整自动化场景执行与验证", "按顺序执行一系列工作流步骤，每步验证后再继续，生成执行报告。", "错误恢复与重试"),
+    ("WF101", "下载安装包并安装（检查已安装则卸载重装）", "给定URL下载安装包，检查本地是否已安装，如果已安装则先卸载然后重新安装。", "软件安装与管理"),
+    ("WF102", "批量检查软件安装状态", "批量检查多个软件是否已安装，返回安装状态清单、版本号、发布者。", "软件安装与管理"),
+    ("WF103", "静默卸载指定软件", "静默卸载指定名称的软件，自动查找卸载命令并尝试静默卸载。", "软件安装与管理"),
+    ("WF104", "下载文件到指定目录", "从URL下载文件到指定本地目录，支持超时和进度记录。", "软件安装与管理"),
+    ("WF105", "执行命令并等待完成", "执行系统命令（CMD/PowerShell），等待完成并返回输出和返回码。", "软件安装与管理"),
 ]
 
 for wf_id, name, desc, category in _guide_workflows:

@@ -16,6 +16,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.1.0] - 2026-09-09
+
+### System Operations 📦
+
+#### New System Tools (9 tools)
+- **`system_download_file(url, save_path, timeout)`** — Download file from URL with progress tracking
+- **`system_run_command(command, timeout, capture_output, work_dir)`** — Execute system command (CMD/PowerShell)
+- **`system_process_running(process_name)`** — Check if a process is running, return PID list
+- **`system_file_exists(path)`** — Check if file/directory exists, return file info
+- **`system_get_installed_software()`** — Get list of installed software from Windows registry (HKLM + HKCU, 32/64-bit)
+- **`system_find_software(name_pattern)`** — Search installed software by name (case-insensitive substring)
+- **`system_uninstall_software(display_name, silent, timeout)`** — Uninstall software by display name, auto-detect silent flags
+- **`system_install_package(installer_path, args, timeout, silent)`** — Install software package (EXE/MSI), auto-detect silent flags
+- **`system_download_and_install(url, save_path, install_args, timeout, silent)`** — One-click download and install
+
+#### New Workflows (WF101-WF105)
+- **WF101**: Download installer and install (uninstall first if already installed)
+- **WF102**: Batch check software installation status
+- **WF103**: Silent uninstall specified software
+- **WF104**: Download file to specified directory
+- **WF105**: Execute command and wait for completion
+
+### Documentation 📚
+- **CREDITS.md** — Added attribution document listing all referenced open source projects, documentation, and resources
+- **install_package_demo.py** — New example script demonstrating WF101 workflow and all system tools (dry-run mode by default)
+
+### Enhanced
+- MCP server: 162 tools (153 → 162, +9 system operations)
+- Workflows: 105 (100 → 105, +5 software installation & management)
+- Workflow categories: 21 (20 → 21, +1 "软件安装与管理")
+- Test suite: 85 unit tests (72 → 85, +13 system operation tests)
+- Workflow ID validation: now enforces upper bound WF001-WF105
+
+### Fixed
+- Workflow ID validation now properly enforces range (WF001-WF105), not just format
+
+---
+
 ## [3.0.0] - 2026-09-09
 
 ### Generation-Level Features 🚀

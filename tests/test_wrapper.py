@@ -41,7 +41,7 @@ class TestVersionAndCapabilities(unittest.TestCase):
         caps = pw.get_capabilities()
         self.assertEqual(caps["version"], "2.0.0")
         self.assertEqual(caps["total_tools"], len(pw.ALL_FUNCTIONS))
-        self.assertEqual(caps["total_workflows"], 100)
+        self.assertEqual(caps["total_workflows"], 105)
         self.assertEqual(caps["executable_workflows"], 35)
         self.assertIn("uia", caps["backends"])
         self.assertIn("win32", caps["backends"])
@@ -211,18 +211,18 @@ class TestWorkflowRegistry(unittest.TestCase):
     """Test workflow registry and listing."""
 
     def test_workflow_count(self):
-        self.assertEqual(len(pw.WORKFLOWS), 100)
+        self.assertEqual(len(pw.WORKFLOWS), 105)
 
     def test_workflow_categories(self):
         from collections import Counter
         cats = Counter(wf["category"] for wf in pw.WORKFLOWS.values())
-        self.assertEqual(len(cats), 20)
+        self.assertEqual(len(cats), 21)
         for count in cats.values():
             self.assertEqual(count, 5)
 
     def test_workflow_list_all(self):
         result = pw.workflow_list()
-        self.assertEqual(result["count"], 100)
+        self.assertEqual(result["count"], 105)
 
     def test_workflow_list_by_category(self):
         result = pw.workflow_list(category="浏览器自动化")
@@ -419,7 +419,7 @@ class TestAllFunctionsRegistered(unittest.TestCase):
                               f"Missing function '{func}' in category '{category}'")
 
     def test_total_count(self):
-        self.assertEqual(len(pw.ALL_FUNCTIONS), 153)
+        self.assertEqual(len(pw.ALL_FUNCTIONS), 162)
 
 
 class TestGenerationEngine(unittest.TestCase):
@@ -529,6 +529,84 @@ class TestGenerationEngine(unittest.TestCase):
         self.assertIn("element_not_found", self.ge._RECOVERY_STRATEGIES)
         self.assertIn("timeout", self.ge._RECOVERY_STRATEGIES)
         self.assertGreater(len(self.ge._RECOVERY_STRATEGIES["element_not_found"]), 0)
+
+
+class TestSystemOperations(unittest.TestCase):
+    """Test system operation functions (download / install / uninstall / process)."""
+
+    def test_system_functions_registered(self):
+        funcs = [
+            "system_download_file", "system_run_command", "system_process_running",
+            "system_file_exists", "system_get_installed_software", "system_find_software",
+            "system_uninstall_software", "system_install_package", "system_download_and_install"
+        ]
+        for f in funcs:
+            self.assertIn(f, pw.ALL_FUNCTIONS, f"{f} not registered in ALL_FUNCTIONS")
+
+    def test_system_file_exists_true(self):
+        result = pw.system_file_exists(r"C:\Windows\notepad.exe")
+        self.assertEqual(result["status"], "success")
+        self.assertTrue(result["exists"])
+        self.assertTrue(result["is_file"])
+
+    def test_system_file_exists_false(self):
+        result = pw.system_file_exists(r"C:\nonexistent\file_xyz123.exe")
+        self.assertEqual(result["status"], "success")
+        self.assertFalse(result["exists"])
+
+    def test_system_process_running_explorer(self):
+        result = pw.system_process_running("explorer.exe")
+        self.assertEqual(result["status"], "success")
+        self.assertTrue(result["running"])
+        self.assertGreater(result["process_count"], 0)
+
+    def test_system_process_running_nonexistent(self):
+        result = pw.system_process_running("nonexistent_process_xyz.exe")
+        self.assertEqual(result["status"], "success")
+        self.assertFalse(result["running"])
+
+    def test_system_run_command_echo(self):
+        result = pw.system_run_command("echo test_output", timeout=10)
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(result["return_code"], 0)
+        self.assertIn("test_output", result.get("stdout", ""))
+
+    def test_system_run_command_timeout(self):
+        result = pw.system_run_command("timeout /t 5", timeout=2)
+        self.assertTrue(result.get("timed_out") or result["status"] == "error")
+
+    def test_system_get_installed_software(self):
+        result = pw.system_get_installed_software()
+        self.assertEqual(result["status"], "success")
+        self.assertGreater(result["count"], 0)
+        self.assertIsInstance(result["software"], list)
+
+    def test_system_find_software_windows(self):
+        # Windows should have some software installed
+        result = pw.system_get_installed_software()
+        if result["count"] > 0:
+            first_name = result["software"][0]["name"]
+            find_result = pw.system_find_software(first_name[:10])
+            self.assertEqual(find_result["status"], "success")
+
+    def test_system_find_software_nonexistent(self):
+        result = pw.system_find_software("NonexistentSoftwareXYZ123")
+        self.assertEqual(result["status"], "success")
+        self.assertFalse(result["found"])
+        self.assertEqual(result["match_count"], 0)
+
+    def test_wf101_to_wf105_registered(self):
+        for wf_id in ["WF101", "WF102", "WF103", "WF104", "WF105"]:
+            wf = pw.workflow_get(wf_id)
+            self.assertIn("name", wf, f"{wf_id} not found")
+            self.assertIn("软件安装与管理", wf.get("category", ""))
+
+    def test_workflow_id_validation_wf105(self):
+        self.assertEqual(pw._validate_workflow_id("WF105"), "WF105")
+
+    def test_workflow_id_validation_invalid_high(self):
+        with self.assertRaises(ValueError):
+            pw._validate_workflow_id("WF106")
 
 
 if __name__ == "__main__":

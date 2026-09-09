@@ -1393,6 +1393,107 @@
 
 ---
 
+## 21. 软件安装与管理（5 条）
+
+### WF101: 下载安装包并安装（检查已安装则卸载重装）
+**用途**: 给定 URL 下载安装包，检查本地是否已安装，如果已安装则先卸载，然后重新安装。适用于软件升级、重装、批量部署等场景。
+**参数**:
+- `url` (必填): 安装包下载 URL
+- `software_name` (必填): 软件显示名称（用于检查是否已安装，如 "Google Chrome"、"7-Zip"）
+- `save_path` (可选): 安装包本地保存路径，默认保存到临时目录
+- `install_args` (可选): 安装程序额外参数
+- `silent` (可选, 默认 true): 是否静默安装/卸载
+- `timeout` (可选, 默认 600): 总超时时间（秒）
+- `skip_uninstall` (可选, 默认 false): 如果已安装，是否跳过卸载直接安装（部分安装包支持直接升级）
+**步骤**:
+1. 检查软件是否已安装：调用 `system_find_software(software_name)`
+   - 如果找到匹配：记录已安装版本、安装路径、卸载命令
+   - 如果未找到：标记为全新安装
+2. 如果已安装且 `skip_uninstall=false`：
+   - 调用 `system_uninstall_software(software_name, silent=silent, timeout=timeout/2)`
+   - 等待卸载完成，检查返回码
+   - 卸载后等待 3 秒确保文件释放
+   - 再次检查确认已卸载（可选验证）
+3. 下载安装包：调用 `system_download_file(url, save_path, timeout=min(timeout, 300))`
+   - 验证下载成功，检查文件大小 > 0
+   - 记录保存路径、文件大小、下载耗时
+4. 执行安装：调用 `system_install_package(save_path, args=install_args, timeout=timeout, silent=silent)`
+   - 等待安装完成，检查返回码
+   - 记录安装输出
+5. 验证安装：再次调用 `system_find_software(software_name)`
+   - 确认软件已出现在已安装列表中
+   - 记录新版本号
+6. （可选）清理安装包：如果 `save_path` 未指定（临时目录），可选择删除
+7. 返回完整执行报告
+**返回**:
+```json
+{
+  "status": "success" | "error",
+  "software_name": "Google Chrome",
+  "was_installed": true,
+  "previous_version": "118.0.5993.70",
+  "uninstall": {"status": "success", "return_code": 0},
+  "download": {"saved_path": "C:\\...\\chrome_installer.exe", "file_size": 95420416, "download_time": 45.2},
+  "install": {"status": "success", "return_code": 0},
+  "new_version": "119.0.6045.105",
+  "total_time": 120.5
+}
+```
+**注意事项**:
+- 部分软件卸载需要管理员权限，请以管理员身份运行 MCP 服务器
+- 静默安装标志（/S、/silent）并非所有安装包都支持，不支持时会弹出安装向导需手动操作
+- MSI 安装包使用 msiexec /quiet，EXE 安装包尝试 /S 标志
+- 杀毒软件可能拦截安装程序，请确保信任该安装包
+- 大型软件安装可能需要较长时间，请适当增加 timeout
+- 卸载后立即安装可能因文件占用失败，建议增加等待时间
+
+### WF102: 批量检查软件安装状态
+**用途**: 批量检查多个软件是否已安装，返回安装状态清单。适用于环境检查、合规检查、部署前验证。
+**参数**: `software_list` (软件名称列表，如 ["Google Chrome", "7-Zip", "Python 3.11"])
+**步骤**:
+1. 获取全部已安装软件列表：`system_get_installed_software()`
+2. 对每个待检查软件，在已安装列表中搜索（不区分大小写、支持部分匹配）
+3. 生成安装状态报告：每个软件的安装状态、版本号、发布者、安装路径
+4. 返回统计摘要和详细清单
+**返回**: `{total, installed_count, missing_count, results: [{name, installed, version, publisher, install_location}]}`
+
+### WF103: 静默卸载指定软件
+**用途**: 静默卸载指定名称的软件，自动查找卸载命令并尝试静默卸载。
+**参数**: `software_name` (软件显示名称), `timeout` (可选, 默认 300)
+**步骤**:
+1. 查找软件：`system_find_software(software_name)`，确认唯一匹配
+2. 获取卸载命令（UninstallString）
+3. 根据卸载类型构建静默卸载命令（MSI 用 /quiet，EXE 尝试 /S）
+4. 执行卸载：`system_run_command(uninstall_command, timeout)`
+5. 验证卸载：再次检查软件是否已从已安装列表移除
+6. 返回卸载结果
+**返回**: `{status, software_name, version, uninstall_command, return_code, verified_removed}`
+
+### WF104: 下载文件到指定目录
+**用途**: 从 URL 下载文件到指定本地目录，支持超时和进度记录。
+**参数**: `url` (下载地址), `save_dir` (保存目录), `filename` (可选, 自定义文件名), `timeout` (可选, 默认 120)
+**步骤**:
+1. 验证 URL 非空
+2. 如果未指定 filename，从 URL 解析文件名
+3. 确保保存目录存在（不存在则创建）
+4. 下载文件：`system_download_file(url, full_path, timeout)`
+5. 验证文件存在且大小 > 0
+6. 返回保存路径、文件大小、下载耗时、下载速度
+**返回**: `{status, saved_path, file_size, file_size_mb, download_time, speed_kbps}`
+
+### WF105: 执行命令并等待完成
+**用途**: 执行系统命令（CMD/PowerShell），等待完成并返回输出和返回码。
+**参数**: `command` (命令字符串), `timeout` (可选, 默认 300), `work_dir` (可选, 工作目录), `capture_output` (可选, 默认 true)
+**步骤**:
+1. 验证命令非空
+2. 执行命令：`system_run_command(command, timeout, capture_output, work_dir)`
+3. 捕获 stdout、stderr、返回码
+4. 超时处理：超时后返回超时状态
+5. 返回执行结果
+**返回**: `{status, return_code, stdout, stderr, elapsed_time, timed_out}`
+
+---
+
 ## 工作流执行说明
 
 所有工作流可通过 `workflow_execute(workflow_id, params)` 工具一键执行：

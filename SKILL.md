@@ -1,4 +1,4 @@
----
+﻿---
 name: pywinauto-mcp
 description: Windows GUI 自动化 Skill（v3.0 生成级），基于 pywinauto 封装 153 个 API 工具并内置 100 条桌面 GUI 常用工作流 + 10 个场景模板，通过 MCP（Model Context Protocol）CLI 服务器暴露为工具。具备生成级能力：自然语言转工作流（NL2Workflow）、智能元素定位（smart_find 模糊匹配+语义排序）、自适应自愈执行（adaptive_execute 错误分析+策略调整+自动恢复）、UI 理解与分析（analyze_ui/describe_element）、场景模板库、脚本生成器（generate_script）。企业级加固：输入校验、重试机制、超时保护、线程安全会话、错误分类与恢复建议、健康检查、安全操作封装、批量执行、状态快照。当用户需要自动化 Windows 桌面应用、用自然语言描述自动化任务、智能查找控件、自适应执行、操作 GUI 控件、模拟键盘鼠标输入等场景时使用。支持 UIA 和 Win32 两种后端，可通过 stdio 或 HTTP 传输运行 MCP 服务器。触发关键词包括：pywinauto、windows 自动化、GUI 自动化、桌面自动化、UI 自动化、自然语言自动化、智能定位、自适应执行、NL2Workflow、生成工作流、脚本生成等。
 ---
@@ -23,14 +23,14 @@ description: Windows GUI 自动化 Skill（v3.0 生成级），基于 pywinauto 
 pywinauto-mcp/
 ├── SKILL.md                          # 本文件
 ├── scripts/
-│   ├── mcp_server.py                 # MCP CLI 服务器（stdio/HTTP，153 工具，优雅关闭）
+│   ├── mcp_server.py                 # MCP CLI 服务器（stdio/HTTP，162 工具，优雅关闭）
 │   ├── pywinauto_wrapper.py          # 143 API 封装层 + 100 工作流引擎 + 重试/校验/超时/线程安全
 │   ├── generation_engine.py          # v3.0 生成级引擎（NL2Workflow/SmartLocator/AdaptiveExec/UIAnalyzer/ScriptGen）
 │   └── self_check.py                 # 环境自检脚本（7大类检查）
 ├── tests/
-│   └── test_wrapper.py               # 72 项单元测试
+│   └── test_wrapper.py               # 85 项单元测试
 └── references/
-    ├── api_reference.md              # 全部 153 工具 API 参考（按 23 类分组）
+    ├── api_reference.md              # 全部 162 工具 API 参考（按 23 类分组）
     ├── usage_guide.md                # 使用指南与典型工作流示例
     ├── element_locators.md           # 元素定位策略与 40+ UIA 控件类型
     └── workflows.md                  # 100 条桌面 GUI 常用工作流（20 类 × 5 条）
@@ -385,7 +385,7 @@ if __name__ == "__main__":
 5. control_click(wrapper_id="ctrl_bbb222")
 ```
 
-## 100 条预置工作流
+## 105 条预置工作流
 
 内置 100 条桌面 GUI 常用工作流，覆盖 20 个类别（每类 5 条），其中 35 条可通过 `workflow_execute` 一键执行，其余 65 条提供详细手动执行步骤指南。
 
@@ -480,7 +480,7 @@ workflow_execute("WF071", {"wrapper_id": "ctrl_xxx", "save_path": "C:/screenshot
 | ScenarioLib | 2 | `list_scenarios`, `apply_scenario`（10个场景模板） |
 | ScriptGen | 1 | `generate_script`（工作流→独立Python脚本） |
 
-**总计：153 个工具**（143 基础+加固 + 10 生成级）
+**总计：162 个工具**（143 基础+加固 + 10 生成级 + 9 系统操作）
 
 **完整 API 参考**：见 `references/api_reference.md`
 
@@ -524,7 +524,7 @@ python scripts/self_check.py
 python tests/test_wrapper.py
 ```
 
-72 项测试覆盖：版本与能力（3）、输入校验（10）、错误分类（6）、会话管理（4）、重试与超时（5）、工作流注册表（7）、条件评估（12）、工作流验证（4）、自定义工作流执行（5）、调用统计（2）、全函数注册（2）、生成级引擎（20：NL2Workflow 5 + SmartLocator 1 + 场景模板 4 + 脚本生成 3 + UIAnalyzer 2 + 模糊匹配 1 + 控件检测 1 + 恢复策略 1 + 工具注册 1 + 总数校验 1）。
+85 项测试覆盖：版本与能力（3）、输入校验（10）、错误分类（6）、会话管理（4）、重试与超时（5）、工作流注册表（7）、条件评估（12）、工作流验证（4）、自定义工作流执行（5）、调用统计（2）、全函数注册（2）、生成级引擎（20：NL2Workflow 5 + SmartLocator 1 + 场景模板 4 + 脚本生成 3 + UIAnalyzer 2 + 模糊匹配 1 + 控件检测 1 + 恢复策略 1 + 工具注册 1 + 总数校验 1）。
 
 ## 使用参考文件
 
@@ -553,7 +553,7 @@ python tests/test_wrapper.py
 - **`references/api_reference.md`** — 需要查询某个工具的完整参数列表时
 - **`references/usage_guide.md`** — 需要参考典型工作流、解决常见问题、了解最佳实践时
 - **`references/element_locators.md`** — 需要定位控件、选择定位策略、查看控件类型时
-- **`references/workflows.md`** — 需要查看 100 条预置工作流的详细步骤和参数时
+- **`references/workflows.md`** — 需要查看 105 条预置工作流的详细步骤和参数时
 
 ### 源码与测试
 - **`scripts/generation_engine.py`** — 需要查看生成级引擎实现（NL2Workflow/SmartLocator/AdaptiveExec/UIAnalyzer/ScriptGen）时
