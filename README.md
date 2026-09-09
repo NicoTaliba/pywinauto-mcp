@@ -106,16 +106,161 @@ result = generate_and_execute("启动记事本，输入Hello World，然后保�
 print(result["status"])  # success
 ```
 
+## 🤖 AI 自动部署提示词
+
+将以下提示词复制给你的 AI 编程助手（Cursor / Claude Code / Copilot / Continue 等），AI 将自动完成 pywinauto-mcp 的部署。
+
+> 📖 完整部署指南见 [docs/ai_deployment_guide.md](docs/ai_deployment_guide.md)
+
+### 提示词 1：快速部署（推荐）
+
+```
+请帮我部署 pywinauto-mcp，这是一个 Windows GUI 自动化的 MCP 服务器。
+
+项目地址：https://github.com/walkzzz/pywinauto-mcp
+
+请按照以下步骤执行：
+1. 克隆仓库到本地
+2. 创建 Python 虚拟环境并激活
+3. 安装依赖：pip install -r requirements.txt
+4. 运行环境自检：python scripts/self_check.py
+5. 验证 MCP 服务器：python scripts/mcp_server.py --list-tools（应显示 162 个工具）
+6. 配置当前 IDE 的 MCP 连接，指向 scripts/mcp_server.py
+7. 验证工具调用：调用 health_check 确认连接正常
+
+每完成一步请告诉我进度，遇到问题请尝试自动修复。
+```
+
+### 提示词 2：完整部署 + 测试
+
+```
+请帮我完整部署 pywinauto-mcp 并运行全部测试。
+
+项目地址：https://github.com/walkzzz/pywinauto-mcp
+
+部署要求：
+- 使用 Python 3.11+ 虚拟环境
+- 安装全部依赖（pywinauto, fastmcp, pywin32, comtypes, pydantic）
+- 运行 85 项单元测试，确保全部通过
+- 验证 162 个 MCP 工具全部注册成功
+- 验证 105 条工作流全部可用
+- 配置 MCP 连接并验证 health_check / get_capabilities / generate_workflow 三个工具可正常调用
+- 最后给出部署报告：环境信息、工具数量、测试结果、连接状态
+
+请分步执行，每步验证后再继续。
+```
+
+### 提示词 3：Cursor 专用部署
+
+```
+请帮我在 Cursor 中部署 pywinauto-mcp MCP 服务器。
+
+项目地址：https://github.com/walkzzz/pywinauto-mcp
+
+请执行：
+1. 克隆仓库
+2. 安装依赖
+3. 在项目根目录创建 .cursor/mcp.json，配置 pywinauto MCP 服务器（使用项目内虚拟环境的 Python）
+4. 验证配置格式正确
+5. 提示我重启 Cursor 以加载 MCP 配置
+6. 重启后验证：在对话中调用 pywinauto 的 health_check 工具
+
+MCP 配置模板：
+{
+  "mcpServers": {
+    "pywinauto": {
+      "command": "${workspaceFolder}\\venv\\Scripts\\python.exe",
+      "args": ["${workspaceFolder}\\scripts\\mcp_server.py"]
+    }
+  }
+}
+```
+
+### 提示词 4：Claude Code 专用部署
+
+```
+请帮我在 Claude Code 中部署 pywinauto-mcp。
+
+项目地址：https://github.com/walkzzz/pywinauto-mcp
+
+请执行：
+1. 克隆仓库并安装依赖
+2. 编辑 %APPDATA%\Claude\claude_desktop_config.json，添加 pywinauto MCP 服务器配置
+3. 验证 JSON 格式正确
+4. 使用 `claude mcp list` 验证服务器已连接
+5. 调用 health_check 验证工具可用
+
+配置格式：
+{
+  "mcpServers": {
+    "pywinauto": {
+      "command": "python",
+      "args": ["C:\\path\\to\\pywinauto-mcp\\scripts\\mcp_server.py"]
+    }
+  }
+}
+```
+
+### 提示词 5：自动化任务执行（部署后使用）
+
+```
+你现在可以使用 pywinauto-mcp 的 162 个 Windows GUI 自动化工具。
+
+请帮我完成以下任务：
+1. 启动记事本应用
+2. 输入文本 "Hello from pywinauto-mcp!"
+3. 全选并复制文本
+4. 截图保存
+5. 关闭记事本
+
+要求：
+- 使用 safe_click / safe_type_text 等安全操作
+- 每步操作后验证结果
+- 遇到错误时使用 adaptive_execute 自动恢复
+- 最后给出执行报告
+```
+
+### 提示词 6：故障排查
+
+```
+pywinauto-mcp MCP 服务器连接失败，请帮我排查。
+
+症状：[描述你的症状，例如：AI 工具显示 MCP 连接失败 / 工具列表为空 / 调用工具报错]
+
+请按以下顺序排查：
+1. 检查 Python 版本和依赖安装：python --version && pip list | findstr "pywinauto fastmcp"
+2. 手动启动服务器查看错误：python scripts/mcp_server.py --list-tools
+3. 运行自检：python scripts/self_check.py
+4. 检查 MCP 配置文件中的路径是否正确
+5. 检查是否有端口占用（HTTP 模式）
+6. 查看 AI 工具的 MCP 日志
+
+找到问题后请修复并验证连接恢复。
+```
+
+### 支持的 AI 工具
+
+| AI 工具 | MCP 支持 | 配置方式 | 详细指南 |
+|---------|----------|----------|----------|
+| **Cursor** | ✅ 原生支持 | `.cursor/mcp.json` 或全局配置 | [部署指南](docs/ai_deployment_guide.md#cursor-部署指南) |
+| **Claude Code** | ✅ 原生支持 | `claude_desktop_config.json` | [部署指南](docs/ai_deployment_guide.md#claude-code-部署指南) |
+| **VS Code + Copilot** | ✅ 预览支持 | `settings.json` | [部署指南](docs/ai_deployment_guide.md#vs-code--github-copilot-部署指南) |
+| **JetBrains AI** | ✅ 2024.2+ | Settings → AI Assistant | [部署指南](docs/ai_deployment_guide.md#jetbrains-ai-assistant-部署指南) |
+| **Continue.dev** | ✅ 开源 | `~/.continue/config.json` | [部署指南](docs/ai_deployment_guide.md#continuedev-部署指南) |
+| **通用 MCP 客户端** | ✅ 标准协议 | 标准 MCP JSON 配置 | [部署指南](docs/ai_deployment_guide.md#通用-mcp-客户端配置) |
+
 ## 文档
 
 | 文档 | 说明 |
 |------|------|
 | [README.md](README.md) | 项目入口（本文件） |
+| [docs/ai_deployment_guide.md](docs/ai_deployment_guide.md) | 🤖 AI 自动部署指南（Cursor/Claude/Copilot/JetBrains/Continue） |
 | [docs/getting_started.md](docs/getting_started.md) | 快速开始指南 |
 | [docs/architecture.md](docs/architecture.md) | 架构设计文档 |
 | [docs/faq.md](docs/faq.md) | 常见问题 |
-| [references/api_reference.md](references/api_reference.md) | 153 工具完整 API 参考 |
-| [references/workflows.md](references/workflows.md) | 100 条工作流详解 |
+| [CREDITS.md](CREDITS.md) | 参考成果声明 |
+| [references/api_reference.md](references/api_reference.md) | 162 工具完整 API 参考 |
+| [references/workflows.md](references/workflows.md) | 105 条工作流详解 |
 | [references/element_locators.md](references/element_locators.md) | 元素定位策略 |
 | [references/usage_guide.md](references/usage_guide.md) | 使用指南与最佳实践 |
 | [CHANGELOG.md](CHANGELOG.md) | 版本变更日志 |
@@ -228,6 +373,7 @@ pywinauto-mcp/
 ├── CONTRIBUTING.md              # 贡献指南
 ├── CODE_OF_CONDUCT.md           # 行为准则
 ├── LICENSE                      # MIT 许可证
+├── CREDITS.md                   # 参考成果声明
 ├── SKILL.md                     # MCP Skill 定义文档
 ├── .github/
 │   ├── ISSUE_TEMPLATE/
@@ -235,6 +381,7 @@ pywinauto-mcp/
 │   │   └── feature_request.md  # 功能请求模板
 │   └── PULL_REQUEST_TEMPLATE.md
 ├── docs/
+│   ├── ai_deployment_guide.md   # 🤖 AI 自动部署指南
 │   ├── architecture.md          # 架构设计文档
 │   ├── getting_started.md       # 快速开始指南
 │   ├── faq.md                   # 常见问题
@@ -243,17 +390,18 @@ pywinauto-mcp/
 │       ├── nl2workflow_demo.py
 │       ├── smart_locator_demo.py
 │       ├── adaptive_exec_demo.py
-│       └── scenario_template_demo.py
+│       ├── scenario_template_demo.py
+│       └── install_package_demo.py
 ├── scripts/
-│   ├── mcp_server.py            # MCP CLI 服务器（stdio/HTTP）
-│   ├── pywinauto_wrapper.py     # 143 API 封装 + 100 工作流引擎
+│   ├── mcp_server.py            # MCP CLI 服务器（stdio/HTTP，162 工具）
+│   ├── pywinauto_wrapper.py     # 162 API 封装 + 105 工作流引擎
 │   ├── generation_engine.py     # v3.0 生成级引擎
 │   └── self_check.py            # 环境自检脚本
 ├── tests/
 │   └── test_wrapper.py          # 85 项单元测试
 └── references/
-    ├── api_reference.md         # 153 工具 API 参考
-    ├── workflows.md             # 100 条工作流详解
+    ├── api_reference.md         # 162 工具 API 参考
+    ├── workflows.md             # 105 条工作流详解
     ├── element_locators.md      # 元素定位策略
     └── usage_guide.md           # 使用指南
 ```
