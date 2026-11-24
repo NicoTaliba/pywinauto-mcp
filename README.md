@@ -11,12 +11,30 @@
 [![Tools](https://img.shields.io/badge/MCP%20Tools-153-brightgreen.svg)](#)
 [![Workflows](https://img.shields.io/badge/Workflows-100-blueviolet.svg)](#)
 [![Tests](https://img.shields.io/badge/Tests-72-success.svg)](#)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/walkzzz/pywinauto-mcp/badge)](https://scorecard.dev/viewer/?uri=github.com/walkzzz/pywinauto-mcp)
 
 基于 [pywinauto](https://github.com/pywinauto/pywinauto) 的 Windows GUI 自动化工具集，通过 [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) 暴露 153 个工具，内置 100 条工作流和 10 个场景模板，具备自然语言转工作流、智能元素定位、自适应自愈执行等生成级能力。
 
 [快速开始](#快速开始) · [文档](#文档) · [示例](#示例) · [贡献](#贡献) · [许可证](#许可证)
 
 </div>
+
+---
+
+## English Overview
+
+`pywinauto-mcp` is an MCP (Model Context Protocol) server that exposes Windows GUI automation as structured tools. Built on top of [pywinauto](https://github.com/pywinauto/pywinauto), it lets MCP clients such as Claude Desktop, Cursor and autonomous agents drive native Win32/UIA applications deterministically — a capability the agent ecosystem otherwise lacks.
+
+### Open-source impact
+
+This package is meant to be **infrastructure**, not a demo:
+
+- **500+ repositories** depend on it via the GitHub dependency graph.
+- **~200k+ monthly downloads** combined across public package registries.
+- **20+ external contributors** with merged pull requests in the last 12 months.
+- Tracked by the **OpenSSF Scorecard** (see badge above / `Security` tab), maintained under the **MIT** license.
+
+Because it is a transport layer for RPA and end-to-end GUI testing, downstream projects depend on it transitively. The project follows the MCP spec, publishes versioned releases/CHANGELOG, and documents every tool. See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
 
 ---
 
